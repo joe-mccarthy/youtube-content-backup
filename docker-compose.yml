@@ -1,0 +1,15 @@
+services:
+  youtube-content-backup:
+    image: ghcr.io/joe-mccarthy/youtube-content-backup:latest
+    container_name: youtube-content-backup
+    restart: unless-stopped
+    environment:
+      CRON_SCHEDULE: "0 */2 * * *"
+      CONFIG_FILE: /config/config.json
+      DOWNLOAD_DIR: /downloads
+      LOG_DIR: /logs
+      YTDLP_JS_RUNTIMES: node
+    volumes:
+      - ./config.json:/config/config.json:ro
+      - ./downloads:/downloads
+      - ./logs:/logs

@@ -1,0 +1,110 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine next version
+        id: version
+        shell: bash
+        run: |
+          latest_tag=$(git tag --list 'v*' --sort=-version:refname | head -n 1)
+
+          if [[ -n "$latest_tag" ]]; then
+            commit_range="$latest_tag..HEAD"
+          else
+            commit_range="HEAD"
+          fi
+
+          commit_messages=$(git log --format=%B "$commit_range")
+
+          bump_type="patch"
+
+          if printf '%s\n' "$commit_messages" | grep -Eq 'BREAKING CHANGE:|^[^[:space:]]+!:'; then
+            bump_type="major"
+          elif printf '%s\n' "$commit_messages" | grep -Eq '^feat(\([^)]+\))?!?:'; then
+            bump_type="minor"
+          fi
+
+          if [[ -z "$latest_tag" ]]; then
+            case "$bump_type" in
+              major) next_version="v1.0.0" ;;
+              minor) next_version="v0.1.0" ;;
+              patch) next_version="v0.0.1" ;;
+            esac
+          else
+            version_number=${latest_tag#v}
+            IFS='.' read -r major minor patch <<< "$version_number"
+
+            case "$bump_type" in
+              major)
+                next_version="v$((major + 1)).0.0"
+                ;;
+              minor)
+                next_version="v${major}.$((minor + 1)).0"
+                ;;
+              patch)
+                next_version="v${major}.${minor}.$((patch + 1))"
+                ;;
+            esac
+          fi
+
+          echo "version=$next_version" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
