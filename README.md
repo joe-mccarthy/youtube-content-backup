@@ -1,4 +1,4 @@
-# Content Backup
+# Content Backup 
 
 Simple bash script that takes a list of either YouTube channels or playlists downloads the content then converts them to mp3.
 
