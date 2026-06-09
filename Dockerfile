@@ -13,6 +13,7 @@ RUN apt-get update \
         curl \
         ffmpeg \
         gcc \
+        libc6-dev \
         jq \
         util-linux \
         ca-certificates \
