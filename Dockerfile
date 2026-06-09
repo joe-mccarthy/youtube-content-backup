@@ -17,10 +17,17 @@ RUN apt-get update \
         ca-certificates \
         gnupg \
     && rm -rf /var/lib/apt/lists/* \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/* \
+    && ARCH=$(dpkg --print-architecture) \
+    && if [ "$ARCH" = "amd64" ] || [ "$ARCH" = "arm64" ]; then \
+        curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+        && apt-get update \
+        && apt-get install -y --no-install-recommends nodejs \
+        && rm -rf /var/lib/apt/lists/*; \
+    else \
+        apt-get update \
+        && apt-get install -y --no-install-recommends nodejs \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi \
     && pip install --no-cache-dir --upgrade "yt-dlp[default]"
 
 WORKDIR /app
