@@ -12,6 +12,7 @@ RUN apt-get update \
         cron \
         curl \
         ffmpeg \
+        gcc \
         jq \
         util-linux \
         ca-certificates \
